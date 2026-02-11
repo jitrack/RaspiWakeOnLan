@@ -69,13 +69,15 @@ body {
   color: #ffffff !important;
 }
 
-/* ── Power button ────────────────────────────────────── */
-#power-btn.btn-start {
+/* ── Power buttons ───────────────────────────────────── */
+#start-btn,
+.btn-start {
   background-color: #a6e3a1;
   color: #1e1e2e;
 }
 
-#power-btn.btn-start:hover {
+#start-btn:hover,
+.btn-start:hover {
   background-color: #8bd88a;
 }
 
@@ -147,24 +149,78 @@ body {
   font-size: .8rem;
 }
 
-/* ── Scheduled shutdowns list ────────────────────────── */
-.scheduled-item {
-  background: #262640;
-  border: 1px solid #3d3d5c;
-  border-radius: .375rem;
-  padding: .5rem;
-  margin-bottom: .5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.scheduled-item-time {
-  color: #f9e2af;
-  font-weight: 600;
-}
-
 /* ── Feedback messages ───────────────────────────────── */
 .feedback-ok  { color: #a6e3a1; }
 .feedback-err { color: #f38ba8; }
 .feedback-info { color: #89dceb; }
+
+/* ── Confirmation Modal ──────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: #1e1e2e;
+  border: 1px solid #3d3d5c;
+  border-radius: .5rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #2d2d44;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-header i {
+  font-size: 1.5rem;
+}
+
+.modal-title {
+  margin: 0;
+  color: #cdd6f4;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  color: #cdd6f4;
+}
+
+.modal-body p {
+  margin: 0;
+}
+
+.modal-footer {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid #2d2d44;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

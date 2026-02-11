@@ -3,29 +3,70 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 const STATUS_POLL_MS = 5000; // poll every 5 seconds
 
 // ── Local state ─────────────────────────────────────────────
-let nasOnline      = null;   // true | false | null (unknown)
-let actionPending  = false;
-let lastMessage    = '';     // persist success message
-let lastMessageType = '';    // 'ok' | 'err'
-let lastScheduleOffset = 5;  // minutes offset for schedule, persisted
+let nasOnline        = null;   // true | false | null (unknown)
+let actionInProgress = false;
+let actionType       = null;   // 'start' | 'stop'
+let lastMessage      = '';     // persist success message
+let lastMessageType  = '';     // 'ok' | 'err'
+let lastScheduleOffset = 5;    // minutes offset for schedule, persisted
 
 // ── DOM elements ────────────────────────────────────────────
 const statusDot       = document.getElementById('status-indicator');
 const statusText      = document.getElementById('status-text');
-const powerBtn        = document.getElementById('power-btn');
-const powerIcon       = document.getElementById('power-icon');
-const powerLabel      = document.getElementById('power-label');
+const startBtnContainer = document.getElementById('start-button-container');
+const startBtn        = document.getElementById('start-btn');
+const shutdownButtons = document.getElementById('shutdown-buttons');
 const feedback        = document.getElementById('action-feedback');
 const schedBody       = document.getElementById('schedule-body');
 
-const shutdownNowBtn     = document.getElementById('shutdown-now-btn');
+const shutdownNowBtn      = document.getElementById('shutdown-now-btn');
 const scheduleShutdownBtn = document.getElementById('schedule-shutdown-btn');
-const scheduleForm       = document.getElementById('schedule-form');
-const scheduleDate       = document.getElementById('schedule-date');
-const scheduleTime       = document.getElementById('schedule-time');
-const scheduleConfirmBtn = document.getElementById('schedule-confirm-btn');
-const scheduleFeedback   = document.getElementById('schedule-feedback');
-const scheduledList      = document.getElementById('scheduled-list');
+const scheduleForm        = document.getElementById('schedule-form');
+const scheduleDate        = document.getElementById('schedule-date');
+const scheduleTime        = document.getElementById('schedule-time');
+const scheduleConfirmBtn  = document.getElementById('schedule-confirm-btn');
+const scheduleFeedback    = document.getElementById('schedule-feedback');
+const scheduledInfo       = document.getElementById('scheduled-info');
+const scheduledDateDisplay = document.getElementById('scheduled-date-display');
+const cancelScheduleBtn   = document.getElementById('cancel-schedule-btn');
+
+// Modal elements
+const confirmModal    = document.getElementById('confirm-modal');
+const modalMessage    = document.getElementById('modal-message');
+const modalConfirm    = document.getElementById('modal-confirm');
+const modalCancel     = document.getElementById('modal-cancel');
+
+let pendingConfirmAction = null; // Stores the action to execute on confirm
+
+// ═══════════════════════════════════════════════════════════
+//  CUSTOM CONFIRMATION MODAL
+// ═══════════════════════════════════════════════════════════
+function showConfirm(message, onConfirm) {
+  modalMessage.textContent = message;
+  confirmModal.style.display = 'flex';
+  pendingConfirmAction = onConfirm;
+}
+
+function hideConfirm() {
+  confirmModal.style.display = 'none';
+  pendingConfirmAction = null;
+}
+
+modalConfirm.addEventListener('click', () => {
+  if (pendingConfirmAction) {
+    pendingConfirmAction();
+  }
+  hideConfirm();
+});
+
+modalCancel.addEventListener('click', hideConfirm);
+
+// Close modal on outside click
+confirmModal.addEventListener('click', (e) => {
+  if (e.target === confirmModal) {
+    hideConfirm();
+  }
+});
 
 // ═══════════════════════════════════════════════════════════
 //  STATUS
@@ -35,62 +76,57 @@ async function fetchStatus() {
     const res  = await fetch('/api/status');
     const data = await res.json();
     nasOnline = data.online;
+    actionInProgress = data.action_in_progress;
+    actionType = data.action_type;
   } catch {
     nasOnline = null;
+    actionInProgress = false;
+    actionType = null;
   }
   renderStatus();
 }
 
 function renderStatus() {
-  if (actionPending) {
+  // Hide all buttons first
+  startBtnContainer.style.display = 'none';
+  shutdownButtons.style.display = 'none';
+  
+  if (actionInProgress) {
     statusDot.className    = 'status-dot pending';
-    statusText.textContent = 'Action in progress…';
-    powerBtn.disabled = true;
-    return;
-  }
-
-  if (nasOnline === null) {
+    statusText.textContent = actionType === 'start' ? 'Starting NAS…' : 'Stopping NAS…';
+    // Don't show any buttons during action
+  } else if (nasOnline === null) {
     statusDot.className    = 'status-dot offline';
     statusText.textContent = 'Unknown state';
-    powerBtn.disabled = true;
-    return;
-  }
-
-  powerBtn.disabled = false;
-
-  if (nasOnline) {
+    // Don't show any buttons
+  } else if (nasOnline) {
     statusDot.className    = 'status-dot online';
     statusText.textContent = 'NAS online';
-    powerBtn.className     = 'btn btn-lg px-5 btn-stop';
-    powerIcon.className    = 'bi bi-stop-fill';
-    powerLabel.textContent = 'Stop';
+    shutdownButtons.style.display = 'block';
   } else {
     statusDot.className    = 'status-dot offline';
     statusText.textContent = 'NAS offline';
-    powerBtn.className     = 'btn btn-lg px-5 btn-start';
-    powerIcon.className    = 'bi bi-play-fill';
-    powerLabel.textContent = 'Start';
+    startBtnContainer.style.display = 'block';
   }
 
   // Show persisted message if exists
-  if (lastMessage) {
+  if (lastMessage && !actionInProgress) {
     feedback.className   = `mt-3 small feedback-${lastMessageType}`;
     feedback.textContent = lastMessage;
+  } else if (actionInProgress) {
+    feedback.textContent = '';
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ACTIONS START / STOP
+//  START ACTION
 // ═══════════════════════════════════════════════════════════
-powerBtn.addEventListener('click', async () => {
-  const endpoint = nasOnline ? '/api/stop' : '/api/start';
-  actionPending = true;
-  renderStatus();
+startBtn.addEventListener('click', async () => {
   feedback.textContent = '';
   lastMessage = '';
 
   try {
-    const res  = await fetch(endpoint, { method: 'POST' });
+    const res  = await fetch('/api/start', { method: 'POST' });
     const data = await res.json();
 
     if (data.success) {
@@ -105,30 +141,37 @@ powerBtn.addEventListener('click', async () => {
     lastMessage = '⚠ Network error';
   }
 
-  // Wait for NAS to start/stop before re-polling
-  setTimeout(() => {
-    actionPending = false;
-    fetchStatus();
-  }, 8000);
+  // Immediately fetch status to show "action in progress"
+  fetchStatus();
 });
 
 // ═══════════════════════════════════════════════════════════
 //  SHUTDOWN NOW
 // ═══════════════════════════════════════════════════════════
-shutdownNowBtn.addEventListener('click', async () => {
-  if (!confirm('Shutdown NAS now?')) return;
-  
-  shutdownNowBtn.disabled = true;
-  try {
-    const res  = await fetch('/api/stop', { method: 'POST' });
-    const data = await res.json();
-    
-    alert(data.success ? data.message : '⚠ ' + data.message);
-  } catch {
-    alert('⚠ Network error');
-  }
-  shutdownNowBtn.disabled = false;
-  fetchStatus();
+shutdownNowBtn.addEventListener('click', () => {
+  showConfirm('Shutdown NAS now?', async () => {
+    feedback.textContent = '';
+    lastMessage = '';
+
+    try {
+      const res  = await fetch('/api/stop', { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.success) {
+        lastMessageType = 'ok';
+        lastMessage = data.message;
+      } else {
+        lastMessageType = 'err';
+        lastMessage = '⚠ ' + data.message;
+      }
+    } catch {
+      lastMessageType = 'err';
+      lastMessage = '⚠ Network error';
+    }
+
+    // Immediately fetch status to show "action in progress"
+    fetchStatus();
+  });
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -136,37 +179,49 @@ shutdownNowBtn.addEventListener('click', async () => {
 // ═══════════════════════════════════════════════════════════
 scheduleShutdownBtn.addEventListener('click', () => {
   const isVisible = scheduleForm.style.display !== 'none';
-  scheduleForm.style.display = isVisible ? 'none' : 'block';
   
-  if (!isVisible) {
-    // Set default to current date/time + offset
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + lastScheduleOffset);
+  if (isVisible) meoit{
+    // hide form, show scheduled info if exists
+    scheduleform.style.display = 'none';
+    loadscheduledshutdown();
+  } else {
+    // show form
+    scheduleform.style.display = 'block';
+    scheduledinfo.style.display = 'none';
     
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toTimeString().substring(0, 5);
+    // if there's an existing schedule, use its time; otherwise use offset
+    if (scheduledinfo.dataset.scheduleiso) {
+      const existingdt = new date(scheduledinfo.dataset.scheduleiso);
+      scheduledate.value = existingdt.toisostring().split('t')[0];
+      scheduletime.value = existingdt.totimestring().substring(0, 5);
+    } else {
+      // default to current time + offset
+      const now = new date();
+      now.setminutes(now.getminutes() + lastscheduleoffset);
+      scheduledate.value = now.toisostring().split('t')[0];
+      scheduletime.value = now.totimestring().substring(0, 5);
+    }
     
-    scheduleDate.value = dateStr;
-    scheduleTime.value = timeStr;
+    schedulefeedback.textcontent = '';
   }
 });
 
-scheduleConfirmBtn.addEventListener('click', async () => {
-  const date = scheduleDate.value;
-  const time = scheduleTime.value;
+scheduleconfirmbtn.addeventlistener('click', async () => {
+  const date = scheduledate.value;
+  const time = scheduletime.value;
   
   if (!date || !time) {
-    scheduleFeedback.className   = 'mt-2 small feedback-err';
-    scheduleFeedback.textContent = '⚠ Please select date and time';
+    schedulefeedback.classname   = 'mt-2 small feedback-err';
+    schedulefeedback.textcontent = '⚠ please select date and time';
     return;
   }
   
-  const scheduledAt = `${date}T${time}:00`;
+  const scheduledat = `${date}t${time}:00`;
   
-  // Update last offset
-  const now = new Date();
-  const scheduled = new Date(scheduledAt);
-  lastScheduleOffset = Math.round((scheduled - now) / 60000);
+  // update last offset
+  const now = new date();
+  const scheduled = new date(scheduledat);
+  lastscheduleoffset = math.round((scheduled - now) / 60000);
   
   try {
     const res = await fetch('/api/scheduled-shutdowns', {
@@ -180,7 +235,7 @@ scheduleConfirmBtn.addEventListener('click', async () => {
       scheduleFeedback.className   = 'mt-2 small feedback-ok';
       scheduleFeedback.textContent = '✓ ' + data.message;
       scheduleForm.style.display = 'none';
-      loadScheduledShutdowns();
+      loadScheduledShutdown();
     } else {
       scheduleFeedback.className   = 'mt-2 small feedback-err';
       scheduleFeedback.textContent = '⚠ ' + data.message;
@@ -191,50 +246,55 @@ scheduleConfirmBtn.addEventListener('click', async () => {
   }
 });
 
-async function loadScheduledShutdowns() {
+async function loadScheduledShutdown() {
   try {
     const res  = await fetch('/api/scheduled-shutdowns');
     const data = await res.json();
-    renderScheduledShutdowns(data.shutdowns);
+    renderScheduledShutdown(data.shutdowns);
   } catch {
-    scheduledList.innerHTML = '<div class=\"small text-danger\">Error loading scheduled shutdowns</div>';
+    scheduledInfo.style.display = 'none';
   }
 }
 
-function renderScheduledShutdowns(shutdowns) {
+function renderScheduledShutdown(shutdowns) {
   if (!shutdowns || shutdowns.length === 0) {
-    scheduledList.innerHTML = '';
+    scheduledInfo.style.display = 'none';
     return;
   }
   
-  scheduledList.innerHTML = '<div class=\"small text-muted mt-2 mb-1\">Scheduled shutdowns:</div>';
-  
-  shutdowns.forEach(s => {
-    const dt = new Date(s.scheduled_at);
-    const dateStr = dt.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    });
-    
-    const div = document.createElement('div');
-    div.className = 'scheduled-item';
-    div.innerHTML = `
-      <span class=\"scheduled-item-time\"><i class=\"bi bi-clock\"></i> ${dateStr}</span>
-      <button class=\"btn btn-sm btn-outline-danger\" onclick=\"deleteScheduledShutdown(${s.id})\">
-        <i class=\"bi bi-trash\"></i>
-      </button>
-    `;
-    scheduledList.appendChild(div);
+  // Display the first (and only) scheduled shutdown
+  const s = shutdowns[0];
+  const dt = new Date(s.scheduled_at);
+  const dateStr = dt.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
+  
+  scheduledDateDisplay.textContent = dateStr;
+  scheduledInfo.style.display = 'block';
+  scheduleForm.style.display = 'none'; // Hide form when schedule is active
+  
+  // Store ID and ISO date for cancellation/editing
+  scheduledInfo.dataset.scheduleId = s.id;
+  scheduledInfo.dataset.scheduleIso = s.scheduled_at;
 }
 
-async function deleteScheduledShutdown(id) {
-  try {
-    await fetch(`/api/scheduled-shutdowns/${id}`, { method: 'DELETE' });
-    loadScheduledShutdowns();
-  } catch {
-    alert('⚠ Failed to delete');
-  }
-}
+cancelScheduleBtn.addEventListener('click', () => {
+  const scheduleId = scheduledInfo.dataset.scheduleId;
+  if (!scheduleId) return;
+  
+  showConfirm('Cancel scheduled shutdown?', async () => {
+    try {
+      await fetch(`/api/scheduled-shutdowns/${scheduleId}`, { method: 'DELETE' });
+      loadScheduledShutdown();
+    } catch {
+      alert('⚠ Failed to cancel');
+    }
+  });
+});
 
 // ═══════════════════════════════════════════════════════════
 //  WEEKLY SCHEDULE (auto-save on change)
@@ -317,5 +377,6 @@ async function handleScheduleChange(e) {
 // ═══════════════════════════════════════════════════════════
 fetchStatus();
 loadSchedules();
-loadScheduledShutdowns();
+loadScheduledShutdown();
 setInterval(fetchStatus, STATUS_POLL_MS);
+setInterval(loadScheduledShutdown, 10000); // Refresh schedule every 10s

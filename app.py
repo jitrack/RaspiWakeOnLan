@@ -20,6 +20,9 @@ from database import (
     add_scheduled_shutdown,
     get_pending_shutdowns,
     delete_scheduled_shutdown,
+    set_action_in_progress,
+    get_action_in_progress,
+    clear_action_in_progress,
 )
 from nas_controller import is_nas_online, shutdown_nas, wake_nas
 from scheduler import init_scheduler, reload_schedules, reload_one_time_shutdowns
@@ -78,13 +81,22 @@ def dashboard():
 @app.route('/api/status')
 @login_required
 def api_status():
-    return jsonify(online=is_nas_online())
+    online = is_nas_online()
+    action = get_action_in_progress()
+    
+    return jsonify(
+        online=online,
+        action_in_progress=action is not None,
+        action_type=action['action_type'] if action else None,
+        action_elapsed=action['elapsed'] if action else None
+    )
 
 
 # ── API: start / stop ────────────────────────────────────────
 @app.route('/api/start', methods=['POST'])
 @login_required
 def api_start():
+    set_action_in_progress('start')
     ok, msg = wake_nas()
     return jsonify(success=ok, message=msg)
 
@@ -92,8 +104,17 @@ def api_start():
 @app.route('/api/stop', methods=['POST'])
 @login_required
 def api_stop():
+    set_action_in_progress('stop')
     ok, msg = shutdown_nas()
     return jsonify(success=ok, message=msg)
+
+
+@app.route('/api/clear-action', methods=['POST'])
+@login_required
+def api_clear_action():
+    """Manually clear action in progress (for testing or force reset)."""
+    clear_action_in_progress()
+    return jsonify(success=True)
 
 
 # ── API: weekly schedules ────────────────────────────────────
@@ -129,6 +150,11 @@ def api_get_scheduled_shutdowns():
 @app.route('/api/scheduled-shutdowns', methods=['POST'])
 @login_required
 def api_add_scheduled_shutdown():
+    # Delete any existing pending shutdown (replace old with new)
+    existing = get_pending_shutdowns()
+    for shutdown in existing:
+        delete_scheduled_shutdown(shutdown['id'])
+    
     data = request.get_json(force=True)
     scheduled_at = data.get('scheduled_at')  # ISO datetime string
     

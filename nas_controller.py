@@ -51,7 +51,7 @@ def shutdown_nas() -> tuple[bool, str]:
             key_filename=NAS_SSH_KEY_PATH,
             timeout=10,
         )
-        client.exec_command('sudo shutdown -h now')
+        client.exec_command('sudo /sbin/shutdown now')
         client.close()
         logger.info('Shutdown command sent to NAS')
         return True, 'Shutdown command sent'
