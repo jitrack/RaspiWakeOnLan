@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def is_nas_online() -> bool:
-    """Ping le NAS – retourne True si joignable."""
+    """Ping the NAS – returns True if reachable."""
     try:
         result = subprocess.run(
             ['ping', '-c', '1', '-W', '2', NAS_IP_ADDRESS],
@@ -29,18 +29,18 @@ def is_nas_online() -> bool:
 
 
 def wake_nas() -> tuple[bool, str]:
-    """Envoie un Magic Packet Wake-on-LAN."""
+    """Send a Wake-on-LAN Magic Packet."""
     try:
         send_magic_packet(NAS_MAC_ADDRESS)
-        logger.info('Magic packet envoyé à %s', NAS_MAC_ADDRESS)
-        return True, 'Magic packet envoyé'
+        logger.info('Magic packet sent to %s', NAS_MAC_ADDRESS)
+        return True, 'Magic packet sent'
     except Exception as e:
-        logger.error('Échec WOL : %s', e)
+        logger.error('WOL failed: %s', e)
         return False, str(e)
 
 
 def shutdown_nas() -> tuple[bool, str]:
-    """Éteint le NAS via SSH (sudo shutdown -h now)."""
+    """Shutdown the NAS via SSH (sudo shutdown -h now)."""
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -53,8 +53,8 @@ def shutdown_nas() -> tuple[bool, str]:
         )
         client.exec_command('sudo shutdown -h now')
         client.close()
-        logger.info('Commande shutdown envoyée au NAS')
-        return True, "Commande d'arrêt envoyée"
+        logger.info('Shutdown command sent to NAS')
+        return True, 'Shutdown command sent'
     except Exception as e:
-        logger.error('Échec shutdown : %s', e)
+        logger.error('Shutdown failed: %s', e)
         return False, str(e)

@@ -14,11 +14,11 @@ NAS_SSH_PORT     = 22
 NAS_SSH_KEY_PATH = os.path.expanduser('~/.ssh/nas')
 
 # ---------- Authentification web ----------
-ADMIN_USERNAME = 'admin'
+ADMIN_USERNAME = 'jitrack'
 ADMIN_PASSWORD = 'Harko-yann96'              # ⚠ À modifier !
 
 # ---------- Flask ----------
-SECRET_KEY = 'change-this-secret-key'    # ⚠ À modifier !
+SECRET_KEY = '2Yfq6ZaMrfFigT'    # ⚠ À modifier !
 
 # ---------- Base de données ----------
 DATABASE_PATH = os.path.join(

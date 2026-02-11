@@ -1,9 +1,11 @@
 import logging
+from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
-from database import get_schedules
+from database import get_schedules, get_pending_shutdowns, mark_shutdown_executed
 from nas_controller import wake_nas, shutdown_nas
 
 logger = logging.getLogger(__name__)
@@ -14,18 +16,24 @@ DAY_CRON = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 
 def _start_job():
-    logger.info('⏰ Tâche planifiée : démarrage du NAS')
+    logger.info('⏰ Scheduled task: starting NAS')
     wake_nas()
 
 
 def _stop_job():
-    logger.info('⏰ Tâche planifiée : arrêt du NAS')
+    logger.info('⏰ Scheduled task: stopping NAS')
     shutdown_nas()
 
 
+def _one_time_shutdown(shutdown_id: int):
+    logger.info('⏰ One-time scheduled shutdown: %d', shutdown_id)
+    shutdown_nas()
+    mark_shutdown_executed(shutdown_id)
+
+
 def reload_schedules():
-    """Supprime les anciens jobs et recharge depuis la BDD."""
-    # Supprimer les jobs existants liés au planning
+    """Remove old jobs and reload from DB."""
+    # Remove existing schedule-related jobs
     for job in scheduler.get_jobs():
         if job.id.startswith('sched_'):
             job.remove()
@@ -55,14 +63,35 @@ def reload_schedules():
             )
 
     logger.info(
-        'Planifications rechargées – %d jobs actifs',
+        'Schedules reloaded – %d active jobs',
         len([j for j in scheduler.get_jobs() if j.id.startswith('sched_')]),
     )
 
 
+def reload_one_time_shutdowns():
+    """Load pending one-time shutdowns and schedule them."""
+    # Remove old one-time jobs
+    for job in scheduler.get_jobs():
+        if job.id.startswith('onetime_'):
+            job.remove()
+    
+    for row in get_pending_shutdowns():
+        scheduled_dt = datetime.fromisoformat(row['scheduled_at'])
+        if scheduled_dt > datetime.now():
+            scheduler.add_job(
+                _one_time_shutdown,
+                DateTrigger(run_date=scheduled_dt),
+                args=[row['id']],
+                id=f"onetime_{row['id']}",
+                replace_existing=True,
+            )
+            logger.info('One-time shutdown scheduled: %s (ID %d)', row['scheduled_at'], row['id'])
+
+
 def init_scheduler():
-    """Charge les planifications et démarre le scheduler."""
+    """Load schedules and start the scheduler."""
     reload_schedules()
+    reload_one_time_shutdowns()
     if not scheduler.running:
         scheduler.start()
-        logger.info('Scheduler démarré')
+        logger.info('Scheduler started')

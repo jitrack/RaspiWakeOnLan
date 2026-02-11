@@ -1,5 +1,6 @@
 import logging
 from functools import wraps
+from datetime import datetime, timedelta
 
 from flask import (
     Flask,
@@ -12,9 +13,16 @@ from flask import (
 )
 
 from config import ADMIN_PASSWORD, ADMIN_USERNAME, SECRET_KEY
-from database import get_schedules, init_db, update_schedule
+from database import (
+    get_schedules,
+    init_db,
+    update_schedule,
+    add_scheduled_shutdown,
+    get_pending_shutdowns,
+    delete_scheduled_shutdown,
+)
 from nas_controller import is_nas_online, shutdown_nas, wake_nas
-from scheduler import init_scheduler, reload_schedules
+from scheduler import init_scheduler, reload_schedules, reload_one_time_shutdowns
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -50,7 +58,7 @@ def login():
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['logged_in'] = True
             return redirect(url_for('dashboard'))
-        error = 'Identifiants incorrects'
+        error = 'Invalid credentials'
     return render_template('login.html', error=error)
 
 
@@ -66,14 +74,14 @@ def dashboard():
     return render_template('dashboard.html')
 
 
-# ── API : état du NAS ────────────────────────────────────────
+# ── API: NAS status ──────────────────────────────────────────
 @app.route('/api/status')
 @login_required
 def api_status():
     return jsonify(online=is_nas_online())
 
 
-# ── API : démarrer / arrêter ─────────────────────────────────
+# ── API: start / stop ────────────────────────────────────────
 @app.route('/api/start', methods=['POST'])
 @login_required
 def api_start():
@@ -88,7 +96,7 @@ def api_stop():
     return jsonify(success=ok, message=msg)
 
 
-# ── API : planifications ─────────────────────────────────────
+# ── API: weekly schedules ────────────────────────────────────
 @app.route('/api/schedules')
 @login_required
 def api_get_schedules():
@@ -99,7 +107,7 @@ def api_get_schedules():
 @login_required
 def api_update_schedule(day: int):
     if day < 0 or day > 6:
-        return jsonify(success=False, message='Jour invalide'), 400
+        return jsonify(success=False, message='Invalid day'), 400
 
     data = request.get_json(force=True)
     start_time = data.get('start_time', '08:00')
@@ -111,7 +119,43 @@ def api_update_schedule(day: int):
     return jsonify(success=True)
 
 
-# ── Démarrage ────────────────────────────────────────────────
+# ── API: one-time scheduled shutdowns ────────────────────────
+@app.route('/api/scheduled-shutdowns', methods=['GET'])
+@login_required
+def api_get_scheduled_shutdowns():
+    return jsonify(shutdowns=get_pending_shutdowns())
+
+
+@app.route('/api/scheduled-shutdowns', methods=['POST'])
+@login_required
+def api_add_scheduled_shutdown():
+    data = request.get_json(force=True)
+    scheduled_at = data.get('scheduled_at')  # ISO datetime string
+    
+    if not scheduled_at:
+        return jsonify(success=False, message='Missing scheduled_at'), 400
+    
+    try:
+        dt = datetime.fromisoformat(scheduled_at)
+        if dt <= datetime.now():
+            return jsonify(success=False, message='Time must be in the future'), 400
+        
+        add_scheduled_shutdown(scheduled_at)
+        reload_one_time_shutdowns()
+        return jsonify(success=True, message=f'Shutdown scheduled for {dt.strftime("%Y-%m-%d %H:%M")}')
+    except ValueError:
+        return jsonify(success=False, message='Invalid datetime format'), 400
+
+
+@app.route('/api/scheduled-shutdowns/<int:shutdown_id>', methods=['DELETE'])
+@login_required
+def api_delete_scheduled_shutdown(shutdown_id: int):
+    delete_scheduled_shutdown(shutdown_id)
+    reload_one_time_shutdowns()
+    return jsonify(success=True)
+
+
+# ── Startup ──────────────────────────────────────────────────
 with app.app_context():
     init_db()
     init_scheduler()
