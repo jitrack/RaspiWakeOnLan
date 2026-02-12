@@ -178,50 +178,50 @@ shutdownNowBtn.addEventListener('click', () => {
 //  SCHEDULED SHUTDOWN
 // ═══════════════════════════════════════════════════════════
 scheduleShutdownBtn.addEventListener('click', () => {
+  const hasActiveSchedule = scheduledInfo.dataset.scheduleId;
   const isVisible = scheduleForm.style.display !== 'none';
   
-  if (isVisible) meoit{
-    // hide form, show scheduled info if exists
-    scheduleform.style.display = 'none';
-    loadscheduledshutdown();
-  } else {
-    // show form
-    scheduleform.style.display = 'block';
-    scheduledinfo.style.display = 'none';
-    
-    // if there's an existing schedule, use its time; otherwise use offset
-    if (scheduledinfo.dataset.scheduleiso) {
-      const existingdt = new date(scheduledinfo.dataset.scheduleiso);
-      scheduledate.value = existingdt.toisostring().split('t')[0];
-      scheduletime.value = existingdt.totimestring().substring(0, 5);
-    } else {
-      // default to current time + offset
-      const now = new date();
-      now.setminutes(now.getminutes() + lastscheduleoffset);
-      scheduledate.value = now.toisostring().split('t')[0];
-      scheduletime.value = now.totimestring().substring(0, 5);
-    }
-    
-    schedulefeedback.textcontent = '';
-  }
-});
-
-scheduleconfirmbtn.addeventlistener('click', async () => {
-  const date = scheduledate.value;
-  const time = scheduletime.value;
-  
-  if (!date || !time) {
-    schedulefeedback.classname   = 'mt-2 small feedback-err';
-    schedulefeedback.textcontent = '⚠ please select date and time';
+  // If there's an active schedule, keep form always visible
+  if (hasActiveSchedule) {
+    scheduleForm.style.display = 'block';
+    // Load existing schedule values
+    const existingDt = new Date(scheduledInfo.dataset.scheduleIso);
+    scheduleDate.value = existingDt.toISOString().split('T')[0];
+    scheduleTime.value = existingDt.toTimeString().substring(0, 5);
+    scheduleFeedback.textContent = '';
     return;
   }
   
-  const scheduledat = `${date}t${time}:00`;
+  // No active schedule: toggle form visibility
+  if (isVisible) {
+    scheduleForm.style.display = 'none';
+  } else {
+    scheduleForm.style.display = 'block';
+    // Default to current time + offset
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + lastScheduleOffset);
+    scheduleDate.value = now.toISOString().split('T')[0];
+    scheduleTime.value = now.toTimeString().substring(0, 5);
+    scheduleFeedback.textContent = '';
+  }
+});
+
+scheduleConfirmBtn.addEventListener('click', async () => {
+  const date = scheduleDate.value;
+  const time = scheduleTime.value;
   
-  // update last offset
-  const now = new date();
-  const scheduled = new date(scheduledat);
-  lastscheduleoffset = math.round((scheduled - now) / 60000);
+  if (!date || !time) {
+    scheduleFeedback.className   = 'mt-2 small feedback-err';
+    scheduleFeedback.textContent = '⚠ Please select date and time';
+    return;
+  }
+  
+  const scheduledAt = `${date}T${time}:00`;
+  
+  // Update last offset
+  const now = new Date();
+  const scheduled = new Date(scheduledAt);
+  lastScheduleOffset = Math.round((scheduled - now) / 60000);
   
   try {
     const res = await fetch('/api/scheduled-shutdowns', {
@@ -234,7 +234,7 @@ scheduleconfirmbtn.addeventlistener('click', async () => {
     if (data.success) {
       scheduleFeedback.className   = 'mt-2 small feedback-ok';
       scheduleFeedback.textContent = '✓ ' + data.message;
-      scheduleForm.style.display = 'none';
+      // Keep form visible since there's now an active schedule
       loadScheduledShutdown();
     } else {
       scheduleFeedback.className   = 'mt-2 small feedback-err';
@@ -259,6 +259,7 @@ async function loadScheduledShutdown() {
 function renderScheduledShutdown(shutdowns) {
   if (!shutdowns || shutdowns.length === 0) {
     scheduledInfo.style.display = 'none';
+    scheduledInfo.classList.remove('d-flex');
     return;
   }
   
@@ -274,8 +275,16 @@ function renderScheduledShutdown(shutdowns) {
   });
   
   scheduledDateDisplay.textContent = dateStr;
-  scheduledInfo.style.display = 'block';
-  scheduleForm.style.display = 'none'; // Hide form when schedule is active
+  scheduledInfo.style.display = 'flex';
+  scheduledInfo.classList.add('d-flex');
+  
+  // Keep form visible so user can modify
+  scheduleForm.style.display = 'block';
+  
+  // Pre-fill form with current scheduled time
+  const existingDt = new Date(s.scheduled_at);
+  scheduleDate.value = existingDt.toISOString().split('T')[0];
+  scheduleTime.value = existingDt.toTimeString().substring(0, 5);
   
   // Store ID and ISO date for cancellation/editing
   scheduledInfo.dataset.scheduleId = s.id;

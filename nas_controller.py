@@ -10,6 +10,9 @@ from config import (
     NAS_SSH_USER,
     NAS_SSH_KEY_PATH,
     NAS_SSH_PORT,
+    USE_TRUENAS_API,
+    TRUENAS_API_KEY,
+    TRUENAS_API_URL,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,7 +43,40 @@ def wake_nas() -> tuple[bool, str]:
 
 
 def shutdown_nas() -> tuple[bool, str]:
-    """Shutdown the NAS via SSH (sudo shutdown -h now)."""
+    """Shutdown the NAS via TrueNAS API or SSH."""
+    if USE_TRUENAS_API:
+        return _shutdown_via_api()
+    else:
+        return _shutdown_via_ssh()
+
+
+def _shutdown_via_api() -> tuple[bool, str]:
+    """Shutdown via TrueNAS API (no sudo needed!)."""
+    try:
+        import requests
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        response = requests.post(
+            f'{TRUENAS_API_URL}/api/v2.0/system/shutdown',
+            headers={'Authorization': f'Bearer {TRUENAS_API_KEY}'},
+            verify=False,  # Skip SSL verification for self-signed certs
+            timeout=10,
+        )
+        
+        if response.status_code in [200, 202]:
+            logger.info('Shutdown command sent via API')
+            return True, 'Shutdown command sent via API'
+        else:
+            logger.error(f'API shutdown failed: {response.status_code} {response.text}')
+            return False, f'API error: {response.status_code}'
+    except Exception as e:
+        logger.error('API shutdown failed: %s', e)
+        return False, str(e)
+
+
+def _shutdown_via_ssh() -> tuple[bool, str]:
+    """Shutdown via SSH (requires sudo permissions)."""
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -53,8 +89,8 @@ def shutdown_nas() -> tuple[bool, str]:
         )
         client.exec_command('sudo /sbin/shutdown now')
         client.close()
-        logger.info('Shutdown command sent to NAS')
-        return True, 'Shutdown command sent'
+        logger.info('Shutdown command sent via SSH')
+        return True, 'Shutdown command sent via SSH'
     except Exception as e:
-        logger.error('Shutdown failed: %s', e)
+        logger.error('SSH shutdown failed: %s', e)
         return False, str(e)

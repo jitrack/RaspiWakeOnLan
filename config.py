@@ -13,6 +13,12 @@ NAS_SSH_USER     = 'truenas_admin'
 NAS_SSH_PORT     = 22
 NAS_SSH_KEY_PATH = os.path.expanduser('~/.ssh/nas')
 
+# TrueNAS API (alternative à SSH pour shutdown)
+# Créer une API Key : TrueNAS Web UI → Top right → API Keys
+USE_TRUENAS_API = True  # True pour utiliser l'API, False pour SSH
+TRUENAS_API_KEY = '1-NE2GQKbO0AYBVVSHgBKx9HFwl36056Mv7IUrIJeOR5ginTadivtO1vpwYkB1rutr'  # Votre API key TrueNAS
+TRUENAS_API_URL = f'https://{NAS_IP_ADDRESS}'  # URL de l'API TrueNAS
+
 # ---------- Authentification web ----------
 ADMIN_USERNAME = 'jitrack'
 ADMIN_PASSWORD = 'Harko-yann96'              # ⚠ À modifier !

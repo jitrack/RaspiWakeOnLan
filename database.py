@@ -164,8 +164,8 @@ def get_action_in_progress():
     now = datetime.now()
     elapsed = (now - started_at).total_seconds()
     
-    # 60 second timeout
-    if elapsed > 60:
+    # 180 second timeout (3 minutes)
+    if elapsed > 180:
         return None
     
     return {

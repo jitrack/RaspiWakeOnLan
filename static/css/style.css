@@ -69,6 +69,24 @@ body {
   color: #ffffff !important;
 }
 
+/* ── Scheduled Shutdown Alert ────────────────────────── */
+#scheduled-info {
+  background-color: #fef3cd !important;
+  border-color: #ffc107 !important;
+  color: #664d03 !important;
+  font-size: 0.95rem;
+}
+
+#scheduled-info .btn-outline-dark {
+  border-color: #664d03;
+  color: #664d03;
+}
+
+#scheduled-info .btn-outline-dark:hover {
+  background-color: #664d03;
+  color: #fff;
+}
+
 /* ── Power buttons ───────────────────────────────────── */
 #start-btn,
 .btn-start {

@@ -71,6 +71,12 @@ def logout():
     return redirect(url_for('login'))
 
 
+@app.route('/static/manifest.json')
+def manifest():
+    """Serve manifest without login requirement."""
+    return app.send_static_file('manifest.json')
+
+
 @app.route('/')
 @login_required
 def dashboard():

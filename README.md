@@ -12,8 +12,11 @@ cd RaspiWakeOnLan
 ```
 
 ### 2. Installer les dépendances Python
+**All dependencies are installed in the virtual environment PythonEnv/**
 ```bash
-pip install -r requirements.txt
+# Dependencies are already installed in PythonEnv/
+# If you need to reinstall:
+./PythonEnv/bin/pip install -r requirements.txt
 ```
 
 ### 3. Configurer
@@ -40,7 +43,14 @@ sudo chmod 440 /etc/sudoers.d/shutdown
 
 ## ▶️ Démarrage
 
+**Using the start script (recommended):**
 ```bash
+./start.sh
+```
+
+**Or manually:**
+```bash
+source PythonEnv/bin/activate
 python app.py
 ```
 
@@ -56,9 +66,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/RaspiWakeOnLan
-ExecStart=/usr/bin/python3 /home/pi/RaspiWakeOnLan/app.py
+User=jitrack
+WorkingDirectory=/home/jitrack/NAS/RaspiWakeOnLan
+ExecStart=/home/jitrack/NAS/RaspiWakeOnLan/start.sh
 Restart=on-failure
 
 [Install]
@@ -72,7 +82,22 @@ sudo systemctl enable naswol
 sudo systemctl start naswol
 ```
 
-## 🗑️ Reset de la base de données
+## � Progressive Web App (PWA)
+
+L'application peut être installée sur votre téléphone comme une app native !
+Voir [PWA_SETUP.md](PWA_SETUP.md) pour les instructions.
+
+## 🔌 API TrueNAS (Recommandé)
+
+**Nouveau !** Utilisez l'API TrueNAS pour éteindre le NAS sans besoin de sudo.
+Voir [TRUENAS_API.md](TRUENAS_API.md) pour la configuration complète.
+
+**Avantages** :
+- ✓ Pas de permissions sudo nécessaires
+- ✓ Configuration stable après reboot
+- ✓ Gestion des permissions via TrueNAS
+
+## �🗑️ Reset de la base de données
 
 ```bash
 rm schedules.db
