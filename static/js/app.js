@@ -1,15 +1,17 @@
 // ── Constants ───────────────────────────────────────────────
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const STATUS_POLL_MS = 5000; // poll every 5 seconds
+const STATUS_POLL_MS = 5000; // poll every 5 seconds when idle
+const ACTION_POLL_MS = 2000; // poll every 2 seconds during actions
 
 // ── Local state ─────────────────────────────────────────────
 let nasOnline        = null;   // true | false | null (unknown)
 let actionInProgress = false;
 let actionType       = null;   // 'start' | 'stop'
+let actionElapsed    = 0;      // seconds elapsed since action started
+let actionStartTime  = null;   // timestamp when action started (for smooth countdown)
 let lastMessage      = '';     // persist success message
 let lastMessageType  = '';     // 'ok' | 'err'
-let lastScheduleOffset = 5;    // minutes offset for schedule, persisted
-
+let lastScheduleOffset = 5;    // minutes offset for schedule, persistedlet statusPollInterval = null; // dynamic interval for status polling
 // ── DOM elements ────────────────────────────────────────────
 const statusDot       = document.getElementById('status-indicator');
 const statusText      = document.getElementById('status-text');
@@ -72,18 +74,55 @@ confirmModal.addEventListener('click', (e) => {
 //  STATUS
 // ═══════════════════════════════════════════════════════════
 async function fetchStatus() {
+  const wasInProgress = actionInProgress;
+  
   try {
     const res  = await fetch('/api/status');
     const data = await res.json();
     nasOnline = data.online;
     actionInProgress = data.action_in_progress;
     actionType = data.action_type;
+    actionElapsed = data.action_elapsed || 0;
+    
+    // Update start time for smooth countdown
+    if (actionInProgress && !actionStartTime) {
+      // Action just started, record the client-side start time
+      actionStartTime = Date.now() - (actionElapsed * 1000);
+    } else if (!actionInProgress) {
+      // Action ended, clear start time
+      actionStartTime = null;
+      
+      // If action just completed, show success message
+      if (wasInProgress && !lastMessage) {
+        lastMessageType = 'ok';
+        if (actionType === 'start') {
+          lastMessage = '✓ NAS started successfully';
+        } else if (actionType === 'stop') {
+          lastMessage = '✓ NAS stopped successfully';
+        }
+      }
+    }
   } catch {
     nasOnline = null;
     actionInProgress = false;
     actionType = null;
+    actionElapsed = 0;
+    actionStartTime = null;
   }
+  
   renderStatus();
+  adjustPollingRate();
+}
+
+function adjustPollingRate() {
+  // Clear existing interval
+  if (statusPollInterval) {
+    clearInterval(statusPollInterval);
+  }
+  
+  // Set faster polling during actions, normal polling otherwise
+  const interval = actionInProgress ? ACTION_POLL_MS : STATUS_POLL_MS;
+  statusPollInterval = setInterval(fetchStatus, interval);
 }
 
 function renderStatus() {
@@ -92,13 +131,30 @@ function renderStatus() {
   shutdownButtons.style.display = 'none';
   
   if (actionInProgress) {
-    statusDot.className    = 'status-dot pending';
-    statusText.textContent = actionType === 'start' ? 'Starting NAS…' : 'Stopping NAS…';
-    // Don't show any buttons during action
+    // Calculate remaining time based on client time for smooth countdown
+    let currentElapsed = actionElapsed;
+    if (actionStartTime) {
+      currentElapsed = (Date.now() - actionStartTime) / 1000;
+    }
+    
+    const remaining = Math.max(0, Math.ceil(180 - currentElapsed));
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    statusDot.className = 'status-dot pending';
+    if (actionType === 'start') {
+      statusText.textContent = `Starting NAS… (${timeStr})`;
+      // Show Start button even during start action (allows retry/reset)
+      startBtnContainer.style.display = 'block';
+    } else {
+      statusText.textContent = `Stopping NAS… (${timeStr})`;
+      // Show Shutdown buttons even during stop action (allows retry/reset)
+      shutdownButtons.style.display = 'block';
+    }
   } else if (nasOnline === null) {
     statusDot.className    = 'status-dot offline';
     statusText.textContent = 'Unknown state';
-    // Don't show any buttons
   } else if (nasOnline) {
     statusDot.className    = 'status-dot online';
     statusText.textContent = 'NAS online';
@@ -387,5 +443,12 @@ async function handleScheduleChange(e) {
 fetchStatus();
 loadSchedules();
 loadScheduledShutdown();
-setInterval(fetchStatus, STATUS_POLL_MS);
+adjustPollingRate(); // Start adaptive polling
 setInterval(loadScheduledShutdown, 10000); // Refresh schedule every 10s
+
+// Update countdown display every second for smooth timer
+setInterval(() => {
+  if (actionInProgress) {
+    renderStatus();
+  }
+}, 1000);

@@ -90,6 +90,17 @@ def api_status():
     online = is_nas_online()
     action = get_action_in_progress()
     
+    # Auto-clear action if goal achieved
+    if action:
+        if action['action_type'] == 'start' and online:
+            # NAS started successfully - clear action
+            clear_action_in_progress()
+            action = None
+        elif action['action_type'] == 'stop' and not online:
+            # NAS stopped successfully - clear action
+            clear_action_in_progress()
+            action = None
+    
     return jsonify(
         online=online,
         action_in_progress=action is not None,

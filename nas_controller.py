@@ -22,9 +22,9 @@ def is_nas_online() -> bool:
     """Ping the NAS – returns True if reachable."""
     try:
         result = subprocess.run(
-            ['ping', '-c', '1', '-W', '2', NAS_IP_ADDRESS],
+            ['ping', '-c', '1', '-W', '1', NAS_IP_ADDRESS],
             capture_output=True,
-            timeout=5,
+            timeout=2,
         )
         return result.returncode == 0
     except Exception:
@@ -59,7 +59,11 @@ def _shutdown_via_api() -> tuple[bool, str]:
         
         response = requests.post(
             f'{TRUENAS_API_URL}/api/v2.0/system/shutdown',
-            headers={'Authorization': f'Bearer {TRUENAS_API_KEY}'},
+            headers={
+                'Authorization': f'Bearer {TRUENAS_API_KEY}',
+                'Content-Type': 'application/json'
+            },
+            json={'reason': 'Shutdown via NAS Control App'},  # TrueNAS requires this field
             verify=False,  # Skip SSL verification for self-signed certs
             timeout=10,
         )
