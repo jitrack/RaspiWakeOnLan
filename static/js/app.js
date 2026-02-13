@@ -11,7 +11,9 @@ let actionElapsed    = 0;      // seconds elapsed since action started
 let actionStartTime  = null;   // timestamp when action started (for smooth countdown)
 let lastMessage      = '';     // persist success message
 let lastMessageType  = '';     // 'ok' | 'err'
-let lastScheduleOffset = 5;    // minutes offset for schedule, persistedlet statusPollInterval = null; // dynamic interval for status polling
+let lastScheduleOffset = 5;    // minutes offset for schedule, persisted
+let statusPollInterval = null; // dynamic interval for status polling
+let timerUpdateInterval = null; // 1-second interval for smooth timer display
 // ── DOM elements ────────────────────────────────────────────
 const statusDot       = document.getElementById('status-indicator');
 const statusText      = document.getElementById('status-text');
@@ -120,9 +122,43 @@ function adjustPollingRate() {
     clearInterval(statusPollInterval);
   }
   
+  // Clear timer update interval if exists
+  if (timerUpdateInterval) {
+    clearInterval(timerUpdateInterval);
+    timerUpdateInterval = null;
+  }
+  
   // Set faster polling during actions, normal polling otherwise
   const interval = actionInProgress ? ACTION_POLL_MS : STATUS_POLL_MS;
   statusPollInterval = setInterval(fetchStatus, interval);
+  
+  // Start smooth timer updates during action
+  if (actionInProgress && actionStartTime) {
+    timerUpdateInterval = setInterval(updateTimerDisplay, 1000);
+  }
+}
+
+function updateTimerDisplay() {
+  if (!actionInProgress || !actionStartTime) {
+    return;
+  }
+  
+  const currentElapsed = (Date.now() - actionStartTime) / 1000;
+  const remaining = Math.max(0, Math.ceil(180 - currentElapsed));
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  
+  if (actionType === 'start') {
+    statusText.textContent = `Starting NAS… (${timeStr})`;
+  } else {
+    statusText.textContent = `Stopping NAS… (${timeStr})`;
+  }
+  
+  // If timer reaches 0, force a status check
+  if (remaining === 0) {
+    fetchStatus();
+  }
 }
 
 function renderStatus() {
