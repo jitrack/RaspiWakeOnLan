@@ -46,7 +46,8 @@ echo ""
 # 3. Create deployment directory
 echo "3. Creating deployment directory..."
 ssh $SSH_OPTS "$RASPI_USER@$RASPI_IP" "mkdir -p $RASPI_DEPLOY_DIR"
-echo "   ✓ $RASPI_DEPLOY_DIR"
+ssh $SSH_OPTS "$RASPI_USER@$RASPI_IP" "cd $RASPI_DEPLOY_DIR && ls -A | grep -v '^PythonEnv$' | xargs -r rm -rf"
+echo "   ✓ $RASPI_DEPLOY_DIR (cleaned, PythonEnv preserved)"
 echo ""
 
 # 4. Sync project files
