@@ -7,7 +7,7 @@ Type=simple
 User=jitrack
 WorkingDirectory=/home/jitrack/NASControl
 Environment="PATH=/home/jitrack/NASControl/PythonEnv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/jitrack/NASControl/PythonEnv/bin/python /home/jitrack/NASControl/app.py
+ExecStart=/home/jitrack/NASControl/PythonEnv/bin/python /home/jitrack/NASControl/server/app.py
 Restart=always
 RestartSec=5
 StandardOutput=journal

@@ -7,20 +7,20 @@
 Le script `deploy.sh` automatise le déploiement sur votre Raspberry Pi:
 
 ```bash
-chmod +x deploy.sh
-./deploy.sh [IP_RASPBERRY] [SSH_USER]
+chmod +x deploy/deploy.sh
+./deploy/deploy.sh [IP_RASPBERRY] [SSH_USER]
 ```
 
 **Exemples:**
 ```bash
 # Avec les valeurs par défaut (IP: 192.168.1.54, User SSH: jitrack)
-./deploy.sh
+./deploy/deploy.sh
 
 # Avec une IP spécifique
-./deploy.sh 192.168.1.100
+./deploy/deploy.sh 192.168.1.100
 
 # Avec IP et user SSH spécifiques
-./deploy.sh 192.168.1.100 pi
+./deploy/deploy.sh 192.168.1.100 pi
 ```
 
 > **Note**: Le 2ème paramètre est le **nom d'utilisateur SSH** de votre Raspberry Pi (ex: pi, jitrack, admin, etc.)
@@ -84,7 +84,7 @@ pip install -r requirements.txt
 ```bash
 # Lancer l'application manuellement pour tester
 source PythonEnv/bin/activate
-python app.py
+python server/app.py
 ```
 
 L'application devrait être accessible sur `http://[IP_RASPBERRY]:5000`
@@ -107,7 +107,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/NASControl
 Environment="PATH=/home/pi/NASControl/PythonEnv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/pi/NASControl/PythonEnv/bin/python /home/pi/NASControl/app.py
+ExecStart=/home/pi/NASControl/PythonEnv/bin/python /home/pi/NASControl/server/app.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -150,7 +150,7 @@ sudo journalctl -u nas-control -n 50
 
 ### 1. Éditer config.py
 ```bash
-nano config.py
+nano server/config.py
 ```
 
 Configurer:
@@ -174,7 +174,7 @@ USERS = {
 Après avoir modifié le code localement, redéployez facilement:
 
 ```bash
-./deploy.sh
+./deploy/deploy.sh
 ```
 
 Le script va:
@@ -258,5 +258,5 @@ Pour une utilisation en production ou accessible depuis Internet:
 
 Pour toute question ou problème:
 1. Vérifiez les logs: `sudo journalctl -u nas-control -f`
-2. Vérifiez la configuration dans `config.py`
+2. Vérifiez la configuration dans `server/config.py`
 3. Testez la connectivité réseau vers le NAS

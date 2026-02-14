@@ -36,5 +36,6 @@ instance/
 .DS_Store
 Thumbs.db
 
-# Secrets (si tu veux versionner config.py, crée config.local.py)
+# Secrets
 config.local.py
+server/config.py

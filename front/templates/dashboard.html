@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block body_class %}text-light{% endblock %}
+
+{% block body %}
+  {% include "components/navbar.html" %}
+
+  <div class="container py-4" style="max-width: 900px;">
+    {% include "components/status_card.html" %}
+    {% include "components/weekly_schedule.html" %}
+  </div>
+
+  {% include "components/confirm_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

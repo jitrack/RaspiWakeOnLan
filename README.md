@@ -1,121 +1,96 @@
-# RaspiWakeOnLan
+# NAS Control
 
-Interface web pour contrôler le démarrage/arrêt d'un NAS via Wake-on-LAN et SSH, avec planification hebdomadaire.
+Interface web pour contrôler le démarrage/arrêt d'un NAS via Wake-on-LAN et l'API TrueNAS, avec planification hebdomadaire. Installable en PWA sur mobile.
 
-## 🚀 Installation
+## 📁 Architecture
 
-### 1. Cloner le projet
-```bash
-cd ~
-git clone <url> RaspiWakeOnLan
-cd RaspiWakeOnLan
+```
+├── server/                  # Backend Python (Flask)
+│   ├── app.py               # Application Flask + routes API
+│   ├── config.py            # Configuration (NAS, auth, DB)
+│   ├── database.py          # Couche SQLite
+│   ├── nas_controller.py    # WOL, ping, TrueNAS API client
+│   └── scheduler.py         # APScheduler (tâches planifiées)
+├── front/                   # Frontend
+│   ├── templates/
+│   │   ├── base.html        # Template de base (head, PWA, SW)
+│   │   ├── components/      # Composants réutilisables
+│   │   │   ├── navbar.html
+│   │   │   ├── status_card.html
+│   │   │   ├── weekly_schedule.html
+│   │   │   └── confirm_modal.html
+│   │   ├── dashboard.html   # Page principale
+│   │   └── login.html       # Page de connexion
+│   └── static/
+│       ├── css/style.css     # Thème Catppuccin Mocha
+│       ├── js/
+│       │   ├── api.js        # Routes API encapsulées
+│       │   ├── state.js      # État global + refs DOM
+│       │   ├── status.js     # Polling + timer countdown
+│       │   ├── actions.js    # Actions start/stop
+│       │   ├── schedule.js   # Planification hebdo + one-time
+│       │   ├── modal.js      # Modal de confirmation
+│       │   └── app.js        # Point d'entrée (init modules)
+│       ├── service-worker.js # PWA offline support
+│       └── manifest.json     # PWA manifest
+├── deploy/                  # Scripts de déploiement
+│   ├── deploy.sh            # Déploiement auto sur Raspberry Pi
+│   ├── setup-ssh-key.sh     # Config SSH sans mot de passe
+│   ├── nas-control.service  # Service systemd
+│   ├── create_icons.py      # Génération icônes PWA
+│   └── generate_favicon.py  # Génération favicon
+├── requirements.txt         # Dépendances Python
+├── start.sh                 # Script de lancement local
+├── README.md
+├── INSTALL.md               # Guide d'installation complet
+└── TRUENAS_API.md           # Documentation API TrueNAS
 ```
 
-### 2. Installer les dépendances Python
-**All dependencies are installed in the virtual environment PythonEnv/**
+## 🚀 Déploiement rapide
+
 ```bash
-# Dependencies are already installed in PythonEnv/
-# If you need to reinstall:
-./PythonEnv/bin/pip install -r requirements.txt
+# Déployer sur la Raspberry Pi (une seule commande)
+./deploy/deploy.sh
+
+# Ou avec IP/user spécifiques
+./deploy/deploy.sh 192.168.1.100 pi
 ```
 
-### 3. Configurer
-Éditer `config.py` avec vos valeurs :
-- `NAS_MAC_ADDRESS` : adresse MAC du NAS (pour WOL)
-- `NAS_IP_ADDRESS` : adresse IP du NAS
-- `NAS_SSH_USER` : utilisateur SSH du NAS
-- `NAS_SSH_KEY_PATH` : chemin vers la clé SSH
-- `ADMIN_USERNAME` / `ADMIN_PASSWORD` : identifiants web
+Voir [INSTALL.md](INSTALL.md) pour le guide complet.
 
-### 4. Configurer l'accès SSH au NAS
+## ⚙️ Configuration
 
-**Sur le Raspberry Pi :**
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/nas
-ssh-copy-id -i ~/.ssh/nas.pub truenas_admin@192.168.1.81
-```
+Éditer `server/config.py` :
+- `NAS_MAC_ADDRESS` – adresse MAC du NAS (pour WOL)
+- `NAS_IP_ADDRESS` – adresse IP du NAS
+- `TRUENAS_API_KEY` – clé API TrueNAS (recommandé)
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` – identifiants web
 
-**Sur le NAS (permettre shutdown sans mot de passe) :**
-```bash
-echo "truenas_admin ALL=(ALL) NOPASSWD: /sbin/shutdown" | sudo tee /etc/sudoers.d/shutdown
-sudo chmod 440 /etc/sudoers.d/shutdown
-```
+## ▶️ Lancement local
 
-## ▶️ Démarrage
-
-**Using the start script (recommended):**
 ```bash
 ./start.sh
+# ou
+PythonEnv/bin/python server/app.py
 ```
 
-**Or manually:**
-```bash
-source PythonEnv/bin/activate
-python app.py
-```
-
-Accessible sur : `http://<ip-raspberry>:5000`
-
-## 🔄 Démarrage automatique (systemd)
-
-Créer `/etc/systemd/system/naswol.service` :
-```ini
-[Unit]
-Description=NAS Wake-on-LAN Controller
-After=network.target
-
-[Service]
-Type=simple
-User=jitrack
-WorkingDirectory=/home/jitrack/NAS/RaspiWakeOnLan
-ExecStart=/home/jitrack/NAS/RaspiWakeOnLan/start.sh
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Activer :
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable naswol
-sudo systemctl start naswol
-```
-
-## � Progressive Web App (PWA)
-
-L'application peut être installée sur votre téléphone comme une app native !
-Voir [PWA_SETUP.md](PWA_SETUP.md) pour les instructions.
-
-## 🔌 API TrueNAS (Recommandé)
-
-**Nouveau !** Utilisez l'API TrueNAS pour éteindre le NAS sans besoin de sudo.
-Voir [TRUENAS_API.md](TRUENAS_API.md) pour la configuration complète.
-
-**Avantages** :
-- ✓ Pas de permissions sudo nécessaires
-- ✓ Configuration stable après reboot
-- ✓ Gestion des permissions via TrueNAS
-
-## �🗑️ Reset de la base de données
-
-```bash
-rm schedules.db
-```
-
-La DB sera recréée au prochain démarrage avec les valeurs par défaut.
-
-## 🌐 Accès via Cloudflare Tunnel
-
-```bash
-cloudflared tunnel --url http://localhost:5000
-```
+Accessible sur : `http://localhost:5000`
 
 ## 📋 Fonctionnalités
 
-- ✅ Détection automatique de l'état du NAS (ping toutes les 5s)
-- ✅ Bouton dynamique Start/Stop
-- ✅ Wake-on-LAN pour démarrer
-- ✅ SSH shutdown pour éteindre
-- ✅ Planification hebdomadaire (heure de démarrage/arrêt par jour)
-- ✅ Authentification web simple
+- ✅ Démarrage du NAS via Wake-on-LAN
+- ✅ Arrêt via API TrueNAS (ou SSH fallback)
+- ✅ Planification hebdomadaire (start/stop par jour)
+- ✅ Arrêt programmé ponctuel (date/heure)
+- ✅ Détection automatique de l'état (ping adaptatif)
+- ✅ Timer countdown fluide pendant les actions
+- ✅ PWA installable sur Android/iOS
+- ✅ Thème dark Catppuccin Mocha
+- ✅ Auto-démarrage via systemd
+- ✅ Déploiement automatisé
+
+## 🔌 API TrueNAS
+
+Voir [TRUENAS_API.md](TRUENAS_API.md) pour la configuration de l'API.
+Avantages : pas de sudo, pas de clé SSH, gestion via TrueNAS directement.
+

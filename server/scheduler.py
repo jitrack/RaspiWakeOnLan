@@ -33,7 +33,6 @@ def _one_time_shutdown(shutdown_id: int):
 
 def reload_schedules():
     """Remove old jobs and reload from DB."""
-    # Remove existing schedule-related jobs
     for job in scheduler.get_jobs():
         if job.id.startswith('sched_'):
             job.remove()
@@ -69,12 +68,11 @@ def reload_schedules():
 
 
 def reload_one_time_shutdowns():
-    """Load pending one-time shutdowns and schedule them."""
-    # Remove old one-time jobs
+    """Load pending one-time shutdowns."""
     for job in scheduler.get_jobs():
         if job.id.startswith('onetime_'):
             job.remove()
-    
+
     for row in get_pending_shutdowns():
         scheduled_dt = datetime.fromisoformat(row['scheduled_at'])
         if scheduled_dt > datetime.now():
