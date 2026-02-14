@@ -18,6 +18,8 @@ body {
 .login-card {
   width: 100%;
   max-width: 380px;
+  margin-left: 1rem;
+  margin-right: 1rem;
   background: #1e1e2e;
   color: #cdd6f4;
   border: 1px solid #2d2d44;
@@ -110,6 +112,50 @@ body {
 
 #power-btn:disabled {
   opacity: .5;
+}
+
+/* ── Button groups responsive ────────────────────────── */
+.button-group {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.button-group .btn {
+  margin-top: 0.5rem;
+}
+
+.button-group .btn:first-child {
+  margin-left: 0;
+}
+
+.button-group .btn:last-child {
+  margin-right: 5;
+}
+
+@media (max-width: 576px) {
+  .button-group {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .button-group .btn {
+    width: 100%;
+  }
+  
+  #schedule-shutdown-btn {
+    margin-top: 10px;
+  }
+  
+  #start-btn,
+  .btn-start {
+    width: 100%;
+  }
+  
+  .card-body {
+    padding: 1.5rem 1rem !important;
+  }
 }
 
 /* ── Schedule table ──────────────────────────────────── */
